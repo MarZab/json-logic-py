@@ -59,8 +59,8 @@ def less(a, b, *args):
 def less_or_equal(a, b, *args):
     """Implements the '<=' operator with JS-style type coertion."""
     return (
-        less(a, b) or soft_equals(a, b)
-    ) and (not args or less_or_equal(b, *args))
+               less(a, b) or soft_equals(a, b)
+           ) and (not args or less_or_equal(b, *args))
 
 
 def to_numeric(arg):
@@ -74,6 +74,7 @@ def to_numeric(arg):
         else:
             return int(arg)
     return arg
+
 
 def plus(*args):
     """Sum converts either to ints or to floats."""
@@ -100,6 +101,10 @@ def merge(*args):
 
 def get_var(data, var_name, not_found=None):
     """Gets variable value from data dictionary."""
+
+    if var_name == '':
+        return data
+
     try:
         for key in str(var_name).split('.'):
             try:
@@ -139,6 +144,50 @@ def missing_some(data, min_required, args):
             if found >= min_required:
                 return []
     return ret
+
+
+def filter_(data, items, scopedLogic):
+    """Implements the filter operator for keeping only elements of the array that pass a test."""
+
+    scopedData = jsonLogic(items, data)
+
+    if type(scopedData) is not list:
+        return []
+
+    # inside the logic being used to filter, var operations are relative to the array element
+    return list(filter(lambda datum: jsonLogic(scopedLogic, datum), scopedData))
+
+
+def map_(data, items, scopedLogic):
+    """Implements the map operator to apply a function to each element."""
+
+    scopedData = jsonLogic(items, data)
+
+    if type(scopedData) is not list:
+        return []
+
+    # inside the logic being used to map, var operations are relative to the array element
+    return list(map(lambda datum: jsonLogic(scopedLogic, datum), scopedData))
+
+
+def reduce_(data, items, scopedLogic, value):
+    """Implements the reduce operator for reducing a array to a single value."""
+
+    scopedData = jsonLogic(items, data)
+
+    if type(scopedData) is not list:
+        return []
+
+    accumulator = value
+
+    # inside the logic being used to reduce, var operations are relative to the array element
+    for item in scopedData:
+        accumulator = jsonLogic(scopedLogic, {
+            'current': item,
+            'accumulator': accumulator
+        })
+
+    return accumulator
 
 
 operations = {
@@ -181,6 +230,13 @@ def jsonLogic(tests, data=None):
 
     operator = list(tests.keys())[0]
     values = tests[operator]
+
+    if operator == 'filter':
+        return filter_(data, *values)
+    if operator == 'map':
+        return map_(data, *values)
+    if operator == 'reduce':
+        return reduce_(data, *values)
 
     # Easy syntax for unary operators, like {"var": "x"} instead of strict
     # {"var": ["x"]}
